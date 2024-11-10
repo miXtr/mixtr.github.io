@@ -1,13 +1,13 @@
 import * as THREE from '//unpkg.com/three/build/three.module.js';
 import { SpaceshipController } from './SpaceshipController.js';
 import { CelestialSystem } from './CelestialSystem.js';
-import { MultiplayerManager } from './MultiplayerManager.js';
+//import { MultiplayerManager } from './MultiplayerManager.js';
 
 // Initialize the world
 let world;
 let spaceshipController;
 let celestialSystem;
-let multiplayerManager;
+//let multiplayerManager;
 
 async function initializeWorld() {
     const countries = await fetch('../ne_110m_admin_0_countries.geojson').then(res => res.json());
@@ -39,7 +39,7 @@ async function initializeWorld() {
     spaceshipController = new SpaceshipController(world, celestialSystem.spaceship);
     
     // Initialize multiplayer
-    multiplayerManager = new MultiplayerManager(world, celestialSystem.spaceship);
+    //multiplayerManager = new MultiplayerManager(world, celestialSystem.spaceship);
 
     // Set up Earth materials
     setupEarthMaterials();

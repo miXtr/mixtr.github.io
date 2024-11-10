@@ -7,7 +7,7 @@ export class CelestialSystem {
         this.world = world;
         this.spaceship = new Spaceship();
         this.rotationAngle = 70;
-        this.ROTATION_RADIUS = 10000;
+        this.ROTATION_RADIUS = 15000;
         this.ROTATION_SPEED = 0.0005;
         
         this.initializeCelestialBodies();
@@ -89,7 +89,7 @@ export class CelestialSystem {
 
         // Calculate positions
         const sunX = this.ROTATION_RADIUS * Math.cos(this.rotationAngle);
-        const sunY = this.ROTATION_RADIUS * Math.sin(this.rotationAngle);
+        const sunY = this.ROTATION_RADIUS * Math.cos(this.rotationAngle);
         const sunZ = this.ROTATION_RADIUS * Math.sin(this.rotationAngle);
 
         // Update sun position

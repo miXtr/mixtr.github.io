@@ -89,7 +89,7 @@ export class CelestialSystem {
 
         // Calculate positions
         const sunX = this.ROTATION_RADIUS * Math.cos(this.rotationAngle);
-        const sunY = this.ROTATION_RADIUS * Math.cos(this.rotationAngle);
+        const sunY = this.ROTATION_RADIUS * Math.sin(this.rotationAngle);
         const sunZ = this.ROTATION_RADIUS * Math.sin(this.rotationAngle);
 
         // Update sun position

@@ -4,21 +4,87 @@
     <style>
         body { 
             margin: 0; 
-            background-image: url('//unpkg.com/three-globe/example/img/night-sky.png'); 
-        } 
-        #time {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            color: lightblue;
+            background-image: url('//unpkg.com/three-globe/example/img/night-sky.png');
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        .hud {
+            position: fixed;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff80;
+            pointer-events: none;
+            font-size: 14px;
+        }
+
+        /* Top HUD */
+        #top-hud {
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Bottom HUD */
+        #bottom-hud {
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Messages */
+        #message-container {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff80;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
     </style>
     <script src="//unpkg.com/globe.gl"></script>
-    <!-- <script src="/socket.io/socket.io.js"></script> -->
 </head>
 <body>
     <div id="globeViz"></div>
-    <div id="time"></div>
+    
+    <!-- Top HUD -->
+    <div id="top-hud" class="hud">
+        <div class="status-container">
+            <div>
+                CONTROL KEYS:<br>
+                <strong>W</strong>: FORWARD<br>
+                <strong>S</strong>: BACKWARD<br>
+                <strong>A</strong>: STRAFE LEFT<br>
+                <strong>D</strong>: STRAFE RIGHT<br>
+                <strong>Q</strong>: MOVE UP<br>
+                <strong>E</strong>: MOVE DOWN<br>
+                <strong>MOUSE</strong>: LOOK/TURN
+            </div>
+        </div>
+        <div class="status-container" style="text-align: right;">
+            <div id="speed">SPEED: 0 km/s</div>
+            <div id="altitude">ALTITUDE: 0 km</div>
+        </div>
+    </div>
+
+    <!-- Bottom HUD -->
+    <div id="bottom-hud" class="hud">
+        <div id="coordinates">
+            LAT: 0.000° LON: 0.000°
+        </div>
+        <div id="time"></div>
+    </div>
+
+    <!-- Message Container -->
+    <div id="message-container"></div>
+
     <script src="./App.js" type="module"></script>
 </body>
 </html>

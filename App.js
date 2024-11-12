@@ -1,12 +1,14 @@
 import * as THREE from '//unpkg.com/three/build/three.module.js';
 import { SpaceshipController } from './SpaceshipController.js';
 import { CelestialSystem } from './CelestialSystem.js';
+import { HUDController } from './HUDController.js';
 //import { MultiplayerManager } from './MultiplayerManager.js';
 
 // Initialize the world
 let world;
 let spaceshipController;
 let celestialSystem;
+let hudController;
 //let multiplayerManager;
 
 async function initializeWorld() {
@@ -37,6 +39,7 @@ async function initializeWorld() {
     // Initialize systems
     celestialSystem = new CelestialSystem(world);
     spaceshipController = new SpaceshipController(world, celestialSystem.spaceship);
+    hudController = new HUDController(celestialSystem.spaceship);
     
     // Initialize multiplayer
     //multiplayerManager = new MultiplayerManager(world, celestialSystem.spaceship);
@@ -44,14 +47,18 @@ async function initializeWorld() {
     // Set up Earth materials
     setupEarthMaterials();
     
+    
+    world.controls().autoRotate = true;
+    world.controls().autoRotateSpeed = 2;
+    //world.scene().rotation.x = (70 * Math.PI) / 180;
     // Start animation
     requestAnimationFrame(animate);
 }
 
 function log(polygon, event, { lat, lng, altitude }){
     console.log(lat, lng, altitude);
-    var rotate = world.controls().autoRotate;
-    world.controls().autoRotate = !rotate;
+    // var rotate = world.controls().autoRotate;
+    // world.controls().autoRotate = !rotate;
 };
 
 function setupEarthMaterials() {
@@ -96,7 +103,7 @@ function initializeClouds() {
 function animate() {
     spaceshipController.update();
     celestialSystem.update();
-
+    hudController.update();
     requestAnimationFrame(animate);
 }
 

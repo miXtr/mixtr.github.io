@@ -6,11 +6,11 @@ export class Spaceship {
         //this.engineEffect = new EngineEffect();
         this.velocity = new THREE.Vector3();
         this.acceleration = new THREE.Vector3();
-        this.maxSpeed = 2.0;
+        this.maxSpeed = 4.0;
         this.drag = 0.98;
         this.enginePower = 0.1;
         this.rotationSpeed = 0.03;
-        this.position = new THREE.Vector3(0, 0, 120);
+        this.position = new THREE.Vector3(0, 0, 1000);
 
         // Set initial position of the mesh
         this.mesh.position.copy(this.position);

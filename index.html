@@ -184,13 +184,13 @@
         transparent: true,
         opacity: 0.71,                // adjust as needed (0 = fully transparent, 1 = opaque)
         shininess: 10,               // optional, for a glossy look
-        //color: 0x222222,         // optional, for a white color
+        color: 0x333333,         // optional, for a white color
       });
       //world.globeMaterial(material_t);
 
       // Add clouds sphere
       const CLOUDS_IMG_URL = './clouds.png';
-      const CLOUDS_ALT = 0.02;
+      const CLOUDS_ALT = 0.015;
       const CLOUDS_ROTATION_SPEED = -0.002;
   
       new TextureLoader().load(CLOUDS_IMG_URL, cloudsTexture => {
@@ -240,9 +240,9 @@
             GDP: <i>${d.GDP_MD_EST}</i> M$<br/>
             Population: <i>${d.POP_EST}</i>
             `)
-            .onPolygonClick(log)
+            //.onPolygonClick(log)
             .onPolygonHover(hoverD => world
-                .polygonAltitude(d => d === hoverD ? 0.03 : 0.006)
+                .polygonAltitude(d => d === hoverD ? 0.02 : 0.006)
             )
             .hexBinPointWeight('pop')
             .hexAltitude(d => d.sumWeight * 0.2e-8)
@@ -269,7 +269,7 @@
           world
           .hexBinPointsData(data)
           .ringsData(gData)
-          .ringAltitude(0.03)
+          .ringAltitude(0.02)
           .ringColor(() => colorInterpolator)
           .ringMaxRadius('maxR')
           .ringPropagationSpeed('propagationSpeed')

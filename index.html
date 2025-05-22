@@ -1,90 +1,290 @@
-<!DOCTYPE html>
-<html>
 <head>
-    <style>
-        body { 
-            margin: 0; 
-            background-image: url('//unpkg.com/three-globe/example/img/night-sky.png');
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-        }
-        
-        .hud {
-            position: fixed;
-            color: #00ffff;
-            text-shadow: 0 0 5px #00ffff80;
-            pointer-events: none;
-            font-size: 14px;
-        }
+  <style>
+    body { margin: 0; }
 
-        /* Top HUD */
-        #top-hud {
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    #time {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      color: lightblue;
+      font-family: monospace;
+    }
 
-        /* Bottom HUD */
-        #bottom-hud {
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-        }
+    #hud {
+      position: absolute;
+      bottom: 50px;
+      left: 50px;
+      color: lightblue;
+      font-family: monospace;
+    }
 
-        /* Messages */
-        #message-container {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            color: #00ffff;
-            text-shadow: 0 0 5px #00ffff80;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-    </style>
-    <script src="//unpkg.com/globe.gl"></script>
+    /* The Modal (background) */
+    .modal {
+      display: none; /* Hidden by default */
+      position: fixed; /* Stay in place */
+      z-index: 1; /* Sit on top */
+      left: 0;
+      top: 0;
+      width: 100%; /* Full width */
+      height: 100%; /* Full height */
+      overflow: auto; /* Enable scroll if needed */
+      background-color: rgb(0,0,0); /* Fallback color */
+      background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    /* Modal Content/Box */
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto; /* 15% from the top and centered */
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%; /* Could be more or less, depending on screen size */
+    }
+
+    /* The Close Button */
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+  </style>
+
+  <script src="//cdn.jsdelivr.net/npm/globe.gl"></script>
+<!--  <script src="../../dist/globe.gl.js"></script>-->
 </head>
+
 <body>
-    <div id="globeViz"></div>
+  <div id="globeViz"></div>
+  <div id="time"></div>
+  <div id="myModal" class="modal"></div>
+
+  <script type="module">
+    import { TextureLoader, ShaderMaterial, Vector2, Mesh, SphereGeometry, MeshPhongMaterial } from 'https://esm.sh/three';
+    //import * as THREE from '//unpkg.com/three/build/three.module.js';
+    import * as solar from 'https://esm.sh/solar-calculator';
+    import { csvParse } from 'https://esm.sh/d3-dsv';
+    import { scaleSequentialSqrt } from 'https://esm.sh/d3-scale';
+    import { interpolateYlOrRd } from 'https://esm.sh/d3-scale-chromatic';
+
+    const weightColor = scaleSequentialSqrt(interpolateYlOrRd)
+      .domain([0, 1e7]);
+
+    const VELOCITY = 0.2; // minutes per frame
+    const colorInterpolator = t => `rgba(133,187,101,${Math.sqrt(1-t)})`;
+
+    // Custom shader:  Blends night and day images to simulate day/night cycle
+    const dayNightShader = {
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec2 vUv;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        #define PI 3.141592653589793
+        uniform sampler2D dayTexture;
+        uniform sampler2D nightTexture;
+        uniform vec2 sunPosition;
+        uniform vec2 globeRotation;
+        varying vec3 vNormal;
+        varying vec2 vUv;
+
+        float toRad(in float a) {
+          return a * PI / 180.0;
+        }
+
+        vec3 Polar2Cartesian(in vec2 c) { // [lng, lat]
+          float theta = toRad(90.0 - c.x);
+          float phi = toRad(90.0 - c.y);
+          return vec3( // x,y,z
+            sin(phi) * cos(theta),
+            cos(phi),
+            sin(phi) * sin(theta)
+          );
+        }
+
+        void main() {
+          float invLon = toRad(globeRotation.x);
+          float invLat = -toRad(globeRotation.y);
+          mat3 rotX = mat3(
+            1, 0, 0,
+            0, cos(invLat), -sin(invLat),
+            0, sin(invLat), cos(invLat)
+          );
+          mat3 rotY = mat3(
+            cos(invLon), 0, sin(invLon),
+            0, 1, 0,
+            -sin(invLon), 0, cos(invLon)
+          );
+          vec3 rotatedSunDirection = rotX * rotY * Polar2Cartesian(sunPosition);
+          float intensity = dot(normalize(vNormal), normalize(rotatedSunDirection));
+          vec4 dayColor = texture2D(dayTexture, vUv);
+          vec4 nightColor = texture2D(nightTexture, vUv);
+          float blendFactor = smoothstep(-0.1, 0.1, intensity);
+          gl_FragColor = mix(nightColor, dayColor, blendFactor);
+        }
+      `
+    };
+
+    const sunPosAt = dt => {
+      const day = new Date(+dt).setUTCHours(0, 0, 0, 0);
+      const t = solar.century(dt);
+      const longitude = (day - dt) / 864e5 * 360 - 180;
+      return [longitude - solar.equationOfTime(t) / 4, solar.declination(t)];
+    };
+
+    let dt = +new Date();
+    const timeEl = document.getElementById('time');
     
-    <!-- Top HUD -->
-    <div id="top-hud" class="hud">
-        <div class="status-container">
-            <div>
-                CONTROL KEYS:<br>
-                <strong>W</strong>: FORWARD<br>
-                <strong>S</strong>: BACKWARD<br>
-                <strong>A</strong>: STRAFE LEFT<br>
-                <strong>D</strong>: STRAFE RIGHT<br>
-                <strong>Q</strong>: MOVE UP<br>
-                <strong>E</strong>: MOVE DOWN<br>
-                <strong>MOUSE</strong>: LOOK/TURN
+    // Get the modal
+    var modal = document.getElementById("myModal");
+
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+
+    const world = new Globe(document.getElementById('globeViz'));
+
+    Promise.all([
+        //new TextureLoader().loadAsync('//cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg'),
+        new TextureLoader().loadAsync('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'),
+        new TextureLoader().loadAsync('//cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+    ]).then(([dayTexture, nightTexture]) => {
+      const material = new ShaderMaterial({
+        uniforms: {
+          dayTexture: { value: dayTexture },
+          nightTexture: { value: nightTexture },
+          sunPosition: { value: new Vector2() },
+          globeRotation: { value: new Vector2() }
+        },
+        vertexShader: dayNightShader.vertexShader,
+        fragmentShader: dayNightShader.fragmentShader
+      });
+
+      world.globeMaterial(material)
+        .backgroundImageUrl('//cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png')
+        // Update globe rotation on shader
+        .onZoom(({ lng, lat }) => material.uniforms.globeRotation.value.set(lng, lat));
+
+      const material_t = new MeshPhongMaterial({
+        transparent: true,
+        opacity: 0.71,                // adjust as needed (0 = fully transparent, 1 = opaque)
+        shininess: 10,               // optional, for a glossy look
+        //color: 0x222222,         // optional, for a white color
+      });
+      //world.globeMaterial(material_t);
+
+      // Add clouds sphere
+      const CLOUDS_IMG_URL = './clouds.png';
+      const CLOUDS_ALT = 0.02;
+      const CLOUDS_ROTATION_SPEED = -0.002;
+  
+      new TextureLoader().load(CLOUDS_IMG_URL, cloudsTexture => {
+        const clouds = new Mesh(
+          new SphereGeometry(world.getGlobeRadius() * (1 + CLOUDS_ALT), 75, 75),
+          new MeshPhongMaterial({ map: cloudsTexture, transparent: true })
+        );
+        //world.scene().add(clouds);
+  
+        (function rotateClouds() {
+          clouds.rotation.y += CLOUDS_ROTATION_SPEED * Math.PI / 180;
+          requestAnimationFrame(rotateClouds);
+        })();
+      });
+
+      function log(polygon, event, { lat, lng, altitude }){
+          console.log(lat, lng, altitude);
+          var rotate = world.controls().autoRotate;
+          world.controls().autoRotate = !rotate;
+          modal.style.display = "block";
+          modal.innerHTML = `
+            <div class="modal-content">
+              <p>${polygon.properties.POP_EST}</p>
+              <p>lat: ${lat}, lng: ${lng}, altitude: ${altitude}</p>
             </div>
-        </div>
-        <div class="status-container" style="text-align: right;">
-            <div id="speed">SPEED: 0 km/s</div>
-            <div id="altitude">ALTITUDE: 0 km</div>
-        </div>
-    </div>
+          `;
+      };
 
-    <!-- Bottom HUD -->
-    <div id="bottom-hud" class="hud">
-        <div id="coordinates">
-            LAT: 0.000° LON: 0.000°
-        </div>
-        <div id="time"></div>
-    </div>
+      // Auto-rotate
+      world.controls().autoRotate = true;
+      world.controls().autoRotateSpeed = 0.05;
+      world.objectRotation([50, 10, 0]);
 
-    <!-- Message Container -->
-    <div id="message-container"></div>
+      fetch('../ne_110m_admin_0_countries.geojson').then(res => res.json()).then(countries =>
+        {
+            world
+            .lineHoverPrecision(0)
+            .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ'))
+            .polygonAltitude(0.006)
+            .polygonsTransitionDuration(200)
+            //.polygonCapColor(() => 'rgba(34,139,34, 0.2)')
+            .polygonCapColor(() => 'rgba(0,51,51, 0.1)')
+            .polygonSideColor(() => 'rgba(153,153,153, 0.3)')
+            .polygonStrokeColor(() => '#111')
+            .polygonLabel(({ properties: d }) => `
+            <b>${d.ADMIN} (${d.ISO_A2}):</b> <br />
+            GDP: <i>${d.GDP_MD_EST}</i> M$<br/>
+            Population: <i>${d.POP_EST}</i>
+            `)
+            .onPolygonClick(log)
+            .onPolygonHover(hoverD => world
+                .polygonAltitude(d => d === hoverD ? 0.03 : 0.006)
+            )
+            .hexBinPointWeight('pop')
+            .hexAltitude(d => d.sumWeight * 0.2e-8)
+            .hexBinResolution(4)
+            .hexTopColor(() => 'rgba(255,255,255, 0.1)')
+            .hexSideColor(() => 'rgba(153,153,153, 0.6)')
+            .hexBinMerge(true)
+            .enablePointerInteraction(true);
+        });
 
-    <script src="./App.js" type="module"></script>
+      fetch('../world_population.csv').then(res => res.text())
+        .then(csv => csvParse(csv, ({ lat, lng, pop }) => ({ lat: +lat, lng: +lng, pop: +pop })))
+        .then(data => 
+        {
+          const filteredData = data.filter(d => d.pop > 2_000_000);
+          const gData = filteredData.map(d => ({
+            ...d,
+            maxR: 1.88,
+            propagationSpeed: 0.33,
+            repeatPeriod: Math.random() * 2000 + 200,
+          }));
+
+          console.log(gData);
+          world
+          .hexBinPointsData(data)
+          .ringsData(gData)
+          .ringAltitude(0.03)
+          .ringColor(() => colorInterpolator)
+          .ringMaxRadius('maxR')
+          .ringPropagationSpeed('propagationSpeed')
+          .ringRepeatPeriod('repeatPeriod')
+        });
+
+      requestAnimationFrame(() =>
+        (function animate() {
+          // animate time of day
+          dt += VELOCITY * 60 * 1000;
+          timeEl.textContent = new Date(dt).toLocaleString();
+          material.uniforms.sunPosition.value.set(...sunPosAt(dt));
+          requestAnimationFrame(animate);
+        })()
+      );
+    });
+  </script>
 </body>
-</html>
